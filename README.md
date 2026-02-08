@@ -35,7 +35,7 @@ export GEMINI_API_KEY="your-key-here"
 Optional model override:
 
 ```bash
-export GEMINI_IMAGE_MODEL="gemini-3-pro-image-preview"
+export GEMINI_IMAGE_MODEL="gemini-2.5-flash-image"
 ```
 
 Configure your MCP client to run this server locally via stdio:
@@ -59,7 +59,7 @@ Configure your MCP client to run this server locally via stdio:
 | Parameter | Required | Description |
 |-----------|----------|-------------|
 | `prompt` | Yes | Prompt text for generation (1-4000 chars) |
-| `save_path` | Yes | Absolute path. If directory, a timestamped `.jpg` file is created. If file path, extension must be `.jpg` or `.jpeg`. |
+| `save_path` | No | Optional output path (absolute or relative). If directory, a timestamped `.jpg` file is created. If file path, extension must be `.jpg` or `.jpeg`. If omitted or invalid/unwritable, the server falls back to `IMAGE_OUTPUT_DIR` and then a safe local temp directory. |
 
 The tool returns:
 

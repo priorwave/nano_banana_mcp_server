@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
-import { mkdtemp, rm, readFile, stat } from "node:fs/promises";
+import { mkdtemp, rm, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
 const toolsModule = await import("../dist/tools.js");
@@ -46,12 +46,14 @@ test("saveImage writes non-empty image bytes to disk", async () => {
         const bytes = Buffer.from("synthetic-image-bytes");
         const data = bytes.toString("base64");
         const savePath = path.join(tempDir, "output.jpg");
-        const filePath = await __test__.saveImage(data, savePath);
+        const saveResult = await __test__.saveImage(data, savePath);
+        const filePath = saveResult.filePath;
 
         const fileStats = await stat(filePath);
         const fileContents = await readFile(filePath);
 
         assert.equal(filePath, savePath);
+        assert.equal(saveResult.warning, undefined);
         assert.ok(fileStats.size > 0);
         assert.equal(Buffer.compare(fileContents, bytes), 0);
     } finally {
@@ -59,10 +61,10 @@ test("saveImage writes non-empty image bytes to disk", async () => {
     }
 });
 
-test("input schema enforces prompt and absolute save_path constraints", () => {
+test("input schema enforces prompt and allows optional/relative save_path", () => {
     const blankPrompt = __test__.generateImageInputSchema.safeParse({
         prompt: "   ",
-        save_path: "/tmp/output.jpg",
+        save_path: "./output.jpg",
     });
     assert.equal(blankPrompt.success, false);
 
@@ -70,7 +72,45 @@ test("input schema enforces prompt and absolute save_path constraints", () => {
         prompt: "draw a cat",
         save_path: "relative/output.jpg",
     });
-    assert.equal(relativePath.success, false);
+    assert.equal(relativePath.success, true);
+
+    const noPath = __test__.generateImageInputSchema.safeParse({
+        prompt: "draw a cat",
+    });
+    assert.equal(noPath.success, true);
+});
+
+test("saveImage falls back to IMAGE_OUTPUT_DIR when requested save_path cannot be used", async () => {
+    const tempDir = await mkdtemp(path.join(tmpdir(), "nano-banana-tools-"));
+    const previousOutputDir = process.env.IMAGE_OUTPUT_DIR;
+
+    try {
+        const fallbackDir = path.join(tempDir, "fallback");
+        process.env.IMAGE_OUTPUT_DIR = fallbackDir;
+
+        const blockedParent = path.join(tempDir, "blocked");
+        await writeFile(blockedParent, "not-a-directory");
+
+        const bytes = Buffer.from("synthetic-image-bytes");
+        const data = bytes.toString("base64");
+        const invalidSavePath = path.join(blockedParent, "output.jpg");
+        const saveResult = await __test__.saveImage(data, invalidSavePath);
+
+        assert.notEqual(saveResult.filePath, invalidSavePath);
+        assert.equal(path.dirname(saveResult.filePath), fallbackDir);
+        assert.match(saveResult.warning ?? "", /Requested save_path/);
+
+        const savedBytes = await readFile(saveResult.filePath);
+        assert.equal(Buffer.compare(savedBytes, bytes), 0);
+    } finally {
+        if (previousOutputDir === undefined) {
+            delete process.env.IMAGE_OUTPUT_DIR;
+        } else {
+            process.env.IMAGE_OUTPUT_DIR = previousOutputDir;
+        }
+
+        await rm(tempDir, { recursive: true, force: true });
+    }
 });
 
 test("tool handler returns MCP error payload when generation fails", async () => {
@@ -79,7 +119,6 @@ test("tool handler returns MCP error payload when generation fails", async () =>
 
     const response = await generateImageTool.handler({
         prompt: "draw a cat",
-        save_path: "/tmp/nano-banana-test-output.jpg",
     });
 
     assert.equal(response.isError, true);

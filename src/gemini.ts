@@ -1,7 +1,7 @@
 import { ApiError, GoogleGenAI } from "@google/genai";
 import sharp from "sharp";
 
-const DEFAULT_IMAGE_MODEL = "gemini-3-pro-image-preview";
+const DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image";
 const REQUEST_TIMEOUT_MS = 60_000;
 const MAX_RETRIES = 2;
 const RETRY_BACKOFF_MS = 500;
