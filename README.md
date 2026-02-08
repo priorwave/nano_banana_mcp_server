@@ -17,7 +17,7 @@ A local stdio MCP server for Gemini-powered image generation.
 ## Install
 
 ```bash
-git clone https://github.com/your-username/nano-banana-mcp.git
+git clone https://github.com/priorwave/nano_banana_mcp_server/
 cd nano-banana-mcp
 npm install
 npm run build
